@@ -5,8 +5,8 @@ import java.io.InputStreamReader;
 
 public class AfficheurFlux implements Runnable {
 
-	public static String lignefin;
-    public static String getLignefin() {
+	public String lignefin;
+    public String getLignefin() {
 		return lignefin;
 	}
 
@@ -24,12 +24,13 @@ public class AfficheurFlux implements Runnable {
         BufferedReader br = getBufferedReader(inputStream);
         String ligne = "";
         try {
+        	Thread.sleep(1);
             while ((ligne = br.readLine()) != null) {
             	//System.out.println(ligne);
                 lignefin = ligne;
                 
             }
-        } catch (IOException e) {
+        } catch (IOException | InterruptedException e) {
             e.printStackTrace();
         }
     }

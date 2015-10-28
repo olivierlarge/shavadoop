@@ -54,45 +54,37 @@ public class mainMaster {
         //}
         System.out.println(ipreachables.size() + " machines pingables");
         //Récupérer liste des hotes actifs
-        HashMap<Thread, AfficheurFlux> threadsAndRuns = new HashMap<Thread, AfficheurFlux>();
+        HashMap<Long, AfficheurFlux> threadsAndRuns = new HashMap<Long, AfficheurFlux>();
         ArrayList<Thread> allThreads = new ArrayList<Thread>();
         for (String ip_test : ipreachables){
 	        try{
-	        	//System.out.println(ip_test);
+	        	//System.out.println("ip send : " + ip_test);
 	        	String[] commandetest = {"ssh",ip_test, "echo a " + ip_test};
-	            //Process p = Runtime.getRuntime().exec(commandetest);
 	        	Process p = new ProcessBuilder(commandetest).start();
 	            AfficheurFlux fluxSortie = new AfficheurFlux(p.getInputStream());
-	            
 	            Thread a = new Thread(fluxSortie);
 	            a.start();
 	            allThreads.add(a);
-	            threadsAndRuns.put(a, fluxSortie);
-	            //new Thread(fluxErreur).start();
-	            //p.waitFor();
-	            
-	            //System.out.println();
-	            
-	           
-	            //System.out.println(fluxSortie);
+	            threadsAndRuns.put(a.getId(), fluxSortie);
 	        } catch (IOException e) {
 	            e.printStackTrace();
 	        }
-	        
         }
         AfficheurFlux fluxRecup;
         for(Thread el : allThreads){
         	el.join();
+        	System.out.print("=");
+        }
+        for(Thread el : allThreads){
         	//recup le flux sortie de el
-        	fluxRecup = threadsAndRuns.get(el);
+        	fluxRecup = threadsAndRuns.get(el.getId());
         	
         	if(fluxRecup.getLignefin() != null){
-        		System.out.println(fluxRecup.getLignefin());
         	if(fluxRecup.getLignefin().matches("a.*")){
             	ipvalides.add(fluxRecup.getLignefin().split(" ")[1]);
             }}
         }
-        System.out.println(ipvalides.size() + " machines disponibles");
+        System.out.println("\n" + ipvalides.size() + " machines disponibles");
         //Input fichier
        ByteArrayOutputStream baos = new ByteArrayOutputStream();
        System.setOut(new PrintStream(baos));
@@ -161,7 +153,7 @@ public class mainMaster {
 	                e1.printStackTrace();
 	            }
 	            //we add the line to our dicoUmxMachine where key is the number of line 
-	            
+	            dicoUmxMachine.put(UMx, ipvalides.get(cnt_ipvalide));
 	            cnt_ipvalide++;
 	            lineNumber++;
 	            //if there is no machine anymore, we send another command to the firsts machine.
@@ -183,10 +175,22 @@ public class mainMaster {
 	
 	public static int shuffle(){
 		//For each key in dicoUmxKey, we send to the first machine associated
+		int smNumber = 0;
 		for(String key : dicoCleUmx.keySet()){
+			String SMx = "SM" + smNumber++;
 			//we get first UMX to retrieve machine : TODO load function metric to optimize machineCible to send
 			String machineCible = dicoUmxMachine.get(dicoCleUmx.get(key).get(0));
-			String[] commande = {"ssh",machineCible, "java -jar Exec.jar modeUMxSMx " + key + " " + "SM1" + "a"};
+			String[] commande = {"ssh",machineCible, "java -jar Exec.jar modeUMxSMx " + key + " " + "SM1 " + "a"};
+			try{
+	        	Process p = new ProcessBuilder(commandetest).start();
+	            AfficheurFlux fluxSortie = new AfficheurFlux(p.getInputStream());
+	            Thread a = new Thread(fluxSortie);
+	            a.start();
+	            allThreads.add(a);
+	            threadsAndRuns.put(a.getId(), fluxSortie);
+	        } catch (IOException e) {
+	            e.printStackTrace();
+	        }
 		}
 		return 1;
 	}
