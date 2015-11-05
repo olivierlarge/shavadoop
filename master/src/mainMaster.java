@@ -7,11 +7,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.security.AllPermission;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Map.Entry;
 import java.util.Scanner;
 
 
@@ -25,16 +27,15 @@ public class mainMaster {
 	/**
 	 * @param args
 	 * @throws InterruptedException 
+	 * @throws IOException 
 	 */
-	public static void main(String[] args) throws InterruptedException {
+	public static void main(String[] args) throws InterruptedException, IOException {
         System.out.println("Début du programme local");
-        
-        
         
         //Récupérer la liste des hotes reachables du 0
         
         int timeout=10;
-       // for (int i=1;i<255;i++){
+        //for (int i=30;i<36;i++){
         for (int j=1;j<25;j++){
             String host="137.194" + "." + "34" + "." + j;
             try {
@@ -89,12 +90,13 @@ public class mainMaster {
        ByteArrayOutputStream baos = new ByteArrayOutputStream();
        System.setOut(new PrintStream(baos));
         map("/cal/homes/olarge/shavadoop/fichiertestMR");
-        try {
-			Thread.sleep(10000);
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+        //map("/cal/homes/olarge/legifrance/Les-codes-en-vigueur/aviation_civile.txt");
+//        try {
+//			Thread.sleep(10000);
+//		} catch (InterruptedException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		}
         System.setOut(new PrintStream(new FileOutputStream(FileDescriptor.out)));
         System.out.println("dictionnaire UMx - Machine : " + dicoUmxMachine);
         
@@ -114,8 +116,8 @@ public class mainMaster {
         }
         System.out.println("dictionnaire clé - UMx : " + dicoCleUmx);
         
-        
-        
+        shuffle();
+        reduce();
         System.out.println("Fin du programme local");
     }
 	
@@ -173,26 +175,103 @@ public class mainMaster {
 	    return 1;
 	}
 	
-	public static int shuffle(){
-		//For each key in dicoUmxKey, we send to the first machine associated
+	public static int shuffle() throws InterruptedException{
+		//For each key in dicoCleUmx, we send to the first machine associated
 		int smNumber = 0;
+		HashMap<Long, AfficheurFlux> threadsAndRunsShuf = new HashMap<Long, AfficheurFlux>();
+		HashMap<String, Integer> machineLoad = new HashMap<>();
+		float globalCharge = 0F;
+		for(String el : ipvalides) {
+			machineLoad.put(el, 0); //On initialise toutes les machines à la charge 0
+		}
+		
+		ArrayList<Thread> allThreadsShuf = new ArrayList<Thread>();
 		for(String key : dicoCleUmx.keySet()){
-			String SMx = "SM" + smNumber++;
+			String SMx = "SM" + smNumber;
+			int i =0;
 			//we get first UMX to retrieve machine : TODO load function metric to optimize machineCible to send
 			String machineCible = dicoUmxMachine.get(dicoCleUmx.get(key).get(0));
-			String[] commande = {"ssh",machineCible, "java -jar Exec.jar modeUMxSMx " + key + " " + "SM1 " + "a"};
+			while(machineLoad.get(machineCible)>3){
+				machineCible = ipvalides.get(i);
+				if(i<ipvalides.size()-1){
+					i++;
+				} else{
+					long startTime = System.currentTimeMillis(); //fetch starting time
+					while((System.currentTimeMillis()-startTime)<5000)
+					{
+						System.out.println("==== UNLOAD CHARGE ON ====");
+						//On décharge des threads qui ont peut être terminé
+						AfficheurFlux fluxRecup = null;
+						for(Thread el : allThreadsShuf){
+							fluxRecup = threadsAndRunsShuf.get(el.getId());
+							if(fluxRecup.getLignefin()!=null){
+				        	String machineUnLoad = fluxRecup.getLignefin().split(" ")[0];
+				        	machineLoad.put(machineUnLoad, machineLoad.get(machineUnLoad)-1);
+				        	globalCharge--;
+							}
+						}
+					}
+				}
+			}
+			//Fonction pour tester un déchargement si on est à 70% de charge
+			if(globalCharge/ipvalides.size()>0.7){
+				long startTime = System.currentTimeMillis(); //fetch starting time
+				while((System.currentTimeMillis()-startTime)<5000)
+				{
+					System.out.println("==== UNLOAD CHARGE ON ====");
+					//On décharge des threads qui ont peut être terminé
+					AfficheurFlux fluxRecup = null;
+					for(Thread el : allThreadsShuf){
+						fluxRecup = threadsAndRunsShuf.get(el.getId());
+						if(fluxRecup.getLignefin()!=null){
+			        	String machineUnLoad = fluxRecup.getLignefin().split(" ")[0];
+			        	machineLoad.put(machineUnLoad, machineLoad.get(machineUnLoad)-1);
+			        	globalCharge--;
+						}
+					}
+				}
+			}
+			machineLoad.put(machineCible, machineLoad.get(machineCible)+1);
+			String allUMX = "";
+			for(String UMx : dicoCleUmx.get(key)){
+				allUMX += UMx + " ";
+			}
+			System.out.println(key + " " + SMx + " " + allUMX);
+			String[] commandeShuf = {"ssh",machineCible, "java -jar Exec.jar modeUMxSMx \"" + key + "\" " + SMx + " " + allUMX};
 			try{
-	        	Process p = new ProcessBuilder(commandetest).start();
+	        	Process p = new ProcessBuilder(commandeShuf).start();
 	            AfficheurFlux fluxSortie = new AfficheurFlux(p.getInputStream());
 	            Thread a = new Thread(fluxSortie);
 	            a.start();
-	            allThreads.add(a);
-	            threadsAndRuns.put(a.getId(), fluxSortie);
+	            allThreadsShuf.add(a);
+	            threadsAndRunsShuf.put(a.getId(), fluxSortie);
 	        } catch (IOException e) {
 	            e.printStackTrace();
 	        }
+			dicoRmxMachine.put("RM" + smNumber, machineCible);
+			smNumber++;
+		}
+		
+		for(Thread elem : allThreadsShuf){
+			elem.join();			
 		}
 		return 1;
 	}
+	public static int reduce() throws IOException{
+		PrintWriter writerReduce = new PrintWriter("/cal/homes/olarge/shavadoop/datamapper/output.txt", "UTF-8");
+		for(Entry<String, String> entry : dicoRmxMachine.entrySet()) {
+			
+			BufferedReader br = null;
+			String sCurrentLine;
+			br = new BufferedReader(new FileReader("/cal/homes/olarge/shavadoop/datamapper/" + entry.getKey() + ".txt"));
+			
+			while ((sCurrentLine = br.readLine()) != null) {
+				writerReduce.write(sCurrentLine + "\n");
+			} 
+		}
+		writerReduce.close();
+		return 1;
+	}
+	
 }
 
