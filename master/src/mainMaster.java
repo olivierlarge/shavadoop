@@ -1,5 +1,6 @@
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.FileReader;
@@ -30,14 +31,20 @@ public class mainMaster {
 	 * @throws IOException 
 	 */
 	public static void main(String[] args) throws InterruptedException, IOException {
-        System.out.println("Début du programme local");
-        
+		System.out.println("==========================");
+		System.out.println("=== STARTING SHAVADOOP ===");
+		System.out.println("==========================");
+        System.out.println("");
+        System.out.println("==========================");
+		System.out.println("===== NODE DETECTION =====");
+		System.out.println("===============Step 1/4===");
+		System.out.println("");
         //Récupérer la liste des hotes reachables du 0
         
         int timeout=10;
-        //for (int i=30;i<36;i++){
-        for (int j=1;j<25;j++){
-            String host="137.194" + "." + "34" + "." + j;
+        for (int i=30;i<36;i++){
+        for (int j=1;j<255;j++){
+            String host="137.194" + "." + i + "." + j;
             try {
 				if (InetAddress.getByName(host).isReachable(timeout)){
 				    //System.out.println(host + " is reachable");
@@ -52,7 +59,7 @@ public class mainMaster {
 			}
         }
         
-        //}
+        }
         System.out.println(ipreachables.size() + " machines pingables");
         //Récupérer liste des hotes actifs
         HashMap<Long, AfficheurFlux> threadsAndRuns = new HashMap<Long, AfficheurFlux>();
@@ -86,6 +93,9 @@ public class mainMaster {
             }}
         }
         System.out.println("\n" + ipvalides.size() + " machines disponibles");
+        System.out.println("===========================");
+		System.out.println("=======  PHASE MAP  =======");
+		System.out.println("================Step 2/4===");
         //Input fichier
        ByteArrayOutputStream baos = new ByteArrayOutputStream();
        System.setOut(new PrintStream(baos));
@@ -118,7 +128,9 @@ public class mainMaster {
         
         shuffle();
         reduce();
-        System.out.println("Fin du programme local");
+        System.out.println("==========================");
+		System.out.println("=== STOPPING SHAVADOOP ===");
+		System.out.println("==========================");
     }
 	
 	
@@ -130,7 +142,9 @@ public class mainMaster {
 
 
 	public static int map(String fileName) {
+		HashMap<String, Integer> machineLoadMap = new HashMap<>();
 	    try {
+	    	int compteur = 0;
 	        Scanner e = new Scanner(new FileReader(fileName));
 	        String ligne = null;
 	        String UMx = "";
@@ -161,12 +175,31 @@ public class mainMaster {
 	            //if there is no machine anymore, we send another command to the firsts machine.
 	            if(cnt_ipvalide>=ipvalides.size()){
 	            	cnt_ipvalide=0;
+	            	compteur++;
+	            	if(compteur == 3){
+	            		compteur =0;
+	            		try {
+	            			System.out.println("unload charge for map");
+	            			Thread.sleep(4000);
+	            		} catch (InterruptedException a) {
+	            			// TODO Auto-generated catch block
+	            			a.printStackTrace();
+	            		}
+	            	}
 	            }
 	        }
+//	        try {
+//    			System.out.println("unload charge for map");
+//    			Thread.sleep(4000);
+//    		} catch (InterruptedException a) {
+//    			// TODO Auto-generated catch block
+//    			a.printStackTrace();
+//    		}
 	        for(Thread th : mapThreads){
 	        	th.join();
 	        	System.out.println(threadsAndRunsMap.get(th).getLignefin());
 	        }
+	        
 
 	    } catch (Exception a) {
 	        a.printStackTrace();
@@ -176,6 +209,10 @@ public class mainMaster {
 	}
 	
 	public static int shuffle() throws InterruptedException{
+		
+		System.out.println("===========================");
+		System.out.println("=====  PHASE SHUFFLE  =====");
+		System.out.println("================Step 3/4===");
 		//For each key in dicoCleUmx, we send to the first machine associated
 		int smNumber = 0;
 		HashMap<Long, AfficheurFlux> threadsAndRunsShuf = new HashMap<Long, AfficheurFlux>();
@@ -191,6 +228,8 @@ public class mainMaster {
 			int i =0;
 			//we get first UMX to retrieve machine : TODO load function metric to optimize machineCible to send
 			String machineCible = dicoUmxMachine.get(dicoCleUmx.get(key).get(0));
+			//System.out.println(machineCible);
+			if(machineLoad.get(machineCible)!=null){
 			while(machineLoad.get(machineCible)>3){
 				machineCible = ipvalides.get(i);
 				if(i<ipvalides.size()-1){
@@ -199,7 +238,7 @@ public class mainMaster {
 					long startTime = System.currentTimeMillis(); //fetch starting time
 					while((System.currentTimeMillis()-startTime)<5000)
 					{
-						System.out.println("==== UNLOAD CHARGE ON ====");
+						//System.out.println("==== UNLOAD CHARGE ON ====");
 						//On décharge des threads qui ont peut être terminé
 						AfficheurFlux fluxRecup = null;
 						for(Thread el : allThreadsShuf){
@@ -218,7 +257,7 @@ public class mainMaster {
 				long startTime = System.currentTimeMillis(); //fetch starting time
 				while((System.currentTimeMillis()-startTime)<5000)
 				{
-					System.out.println("==== UNLOAD CHARGE ON ====");
+					//System.out.println("==== UNLOAD CHARGE ON ====");
 					//On décharge des threads qui ont peut être terminé
 					AfficheurFlux fluxRecup = null;
 					for(Thread el : allThreadsShuf){
@@ -236,7 +275,7 @@ public class mainMaster {
 			for(String UMx : dicoCleUmx.get(key)){
 				allUMX += UMx + " ";
 			}
-			System.out.println(key + " " + SMx + " " + allUMX);
+			//System.out.println(key + " " + SMx + " " + allUMX);
 			String[] commandeShuf = {"ssh",machineCible, "java -jar Exec.jar modeUMxSMx \"" + key + "\" " + SMx + " " + allUMX};
 			try{
 	        	Process p = new ProcessBuilder(commandeShuf).start();
@@ -251,23 +290,28 @@ public class mainMaster {
 			dicoRmxMachine.put("RM" + smNumber, machineCible);
 			smNumber++;
 		}
-		
+		}
 		for(Thread elem : allThreadsShuf){
 			elem.join();			
 		}
 		return 1;
 	}
 	public static int reduce() throws IOException{
+		System.out.println("==========================");
+		System.out.println("=====  PHASE REDUCE  =====");
+		System.out.println("===============Step 4/4===");
 		PrintWriter writerReduce = new PrintWriter("/cal/homes/olarge/shavadoop/datamapper/output.txt", "UTF-8");
 		for(Entry<String, String> entry : dicoRmxMachine.entrySet()) {
-			
-			BufferedReader br = null;
-			String sCurrentLine;
-			br = new BufferedReader(new FileReader("/cal/homes/olarge/shavadoop/datamapper/" + entry.getKey() + ".txt"));
-			
-			while ((sCurrentLine = br.readLine()) != null) {
-				writerReduce.write(sCurrentLine + "\n");
-			} 
+			File f = new File("/cal/homes/olarge/shavadoop/datamapper/" + entry.getKey() + ".txt");
+			if(f.exists()) { 
+				BufferedReader br = null;
+				String sCurrentLine;
+				br = new BufferedReader(new FileReader("/cal/homes/olarge/shavadoop/datamapper/" + entry.getKey() + ".txt"));
+				
+				while ((sCurrentLine = br.readLine()) != null) {
+					writerReduce.write(sCurrentLine + "\n");
+				} 
+			}
 		}
 		writerReduce.close();
 		return 1;
